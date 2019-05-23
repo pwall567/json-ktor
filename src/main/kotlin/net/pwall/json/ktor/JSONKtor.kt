@@ -27,19 +27,23 @@ package net.pwall.json.ktor
 
 import kotlinx.coroutines.io.ByteReadChannel
 
-import java.nio.charset.Charset
-
 import io.ktor.application.ApplicationCall
+import io.ktor.application.call
 import io.ktor.features.ContentConverter
 import io.ktor.features.ContentNegotiation
+import io.ktor.features.suitableCharset
 import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
 import io.ktor.http.withCharset
 import io.ktor.request.ApplicationReceiveRequest
+import io.ktor.request.contentCharset
+import io.ktor.util.KtorExperimentalAPI
 import io.ktor.util.pipeline.PipelineContext
+import kotlinx.coroutines.io.jvm.javaio.toInputStream
+import net.pwall.json.JSON
 
-import net.pwall.json.JSONAuto
 import net.pwall.json.JSONConfig
+import net.pwall.json.JSONDeserializer
 import net.pwall.json.JSONSerializer
 
 /**
@@ -49,19 +53,21 @@ import net.pwall.json.JSONSerializer
  */
 class JSONKtor(val config: JSONConfig? = null) : ContentConverter {
 
+    @KtorExperimentalAPI
     override suspend fun convertForSend(context: PipelineContext<Any, ApplicationCall>, contentType: ContentType,
             value: Any): Any? {
         if (contentType != ContentType.Application.Json)
             return null
         val json = JSONSerializer.serialize(value, config)?.toJSON() ?: "null"
-        return TextContent(json, contentType.withCharset(Charset.forName("UTF-8")))
+        return TextContent(json, contentType.withCharset(context.call.suitableCharset()))
     }
 
+    @Suppress("BlockingMethodInNonBlockingContext")
     override suspend fun convertForReceive(context: PipelineContext<ApplicationReceiveRequest, ApplicationCall>): Any? {
         val request = context.subject
-        val value = request.value as? ByteReadChannel ?: return null
-        val content = value.readRemaining(20000, 2000).readText() // 20000 is arbitrary maximum size (as is 2000)
-        return JSONAuto.parse(request.type, content) // TODO change to use config
+        val channel = request.value as? ByteReadChannel ?: return null
+        val reader = channel.toInputStream().reader(context.call.request.contentCharset() ?: Charsets.UTF_8)
+        return JSONDeserializer.deserialize(request.type, JSON.parse(reader), config)
     }
 
 }
