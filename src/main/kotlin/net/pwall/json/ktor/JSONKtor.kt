@@ -25,7 +25,10 @@
 
 package net.pwall.json.ktor
 
+import kotlin.reflect.full.starProjectedType
 import kotlinx.coroutines.io.ByteReadChannel
+
+import java.nio.ByteBuffer
 
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
@@ -36,15 +39,14 @@ import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
 import io.ktor.http.withCharset
 import io.ktor.request.ApplicationReceiveRequest
-import io.ktor.request.contentCharset
 import io.ktor.util.KtorExperimentalAPI
 import io.ktor.util.pipeline.PipelineContext
-import kotlinx.coroutines.io.jvm.javaio.toInputStream
-import net.pwall.json.JSON
 
+import net.pwall.json.JSON
 import net.pwall.json.JSONConfig
 import net.pwall.json.JSONDeserializer
 import net.pwall.json.JSONSerializer
+import net.pwall.util.Strings
 
 /**
  * Content converter for ktor - converts JSON using the `json-kotlin` library.
@@ -62,12 +64,10 @@ class JSONKtor(val config: JSONConfig? = null) : ContentConverter {
         return TextContent(json, contentType.withCharset(context.call.suitableCharset()))
     }
 
-    @Suppress("BlockingMethodInNonBlockingContext")
     override suspend fun convertForReceive(context: PipelineContext<ApplicationReceiveRequest, ApplicationCall>): Any? {
         val request = context.subject
         val channel = request.value as? ByteReadChannel ?: return null
-        val reader = channel.toInputStream().reader(context.call.request.contentCharset() ?: Charsets.UTF_8)
-        return JSONDeserializer.deserialize(request.type, JSON.parse(reader), config)
+        return JSONDeserializer.deserialize(request.type.starProjectedType, JSON.parse(readAll(channel)), config)
     }
 
 }
@@ -78,4 +78,30 @@ class JSONKtor(val config: JSONConfig? = null) : ContentConverter {
 fun ContentNegotiation.Configuration.jsonKtor(contentType: ContentType = ContentType.Application.Json,
         block: JSONConfig.() -> Unit = {}) {
     register(contentType, JSONKtor(JSONConfig().apply(block)))
+}
+
+const val bufferSize = 8192
+
+/**
+ * Read all data from the `ByteReadChannel` and convert from UTF-8.
+ *
+ * There may be a pre-existing function that does this, but if so it wasn't obvious!
+ *
+ * @param   channel the `ByteReadChannel`
+ * @return          the data as a string, decoded from UTF-8
+ */
+suspend fun readAll(channel: ByteReadChannel): String {
+    val bufferList: MutableList<ByteBuffer> = ArrayList()
+    var buffer = ByteBuffer.allocate(bufferSize)
+    while (!channel.isClosedForRead) {
+        channel.readAvailable(buffer)
+        if (!buffer.hasRemaining()) {
+            buffer.flip()
+            bufferList.add(buffer)
+            buffer = ByteBuffer.allocate(bufferSize)
+        }
+    }
+    buffer.flip()
+    bufferList.add(buffer)
+    return Strings.fromUTF8(bufferList.toTypedArray())
 }
