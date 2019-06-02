@@ -25,22 +25,28 @@
 
 package net.pwall.json.ktor
 
+import kotlin.reflect.full.starProjectedType
 import kotlinx.coroutines.io.ByteReadChannel
 
-import java.nio.charset.Charset
+import java.nio.ByteBuffer
 
 import io.ktor.application.ApplicationCall
+import io.ktor.application.call
 import io.ktor.features.ContentConverter
 import io.ktor.features.ContentNegotiation
+import io.ktor.features.suitableCharset
 import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
 import io.ktor.http.withCharset
 import io.ktor.request.ApplicationReceiveRequest
+import io.ktor.util.KtorExperimentalAPI
 import io.ktor.util.pipeline.PipelineContext
 
-import net.pwall.json.JSONAuto
+import net.pwall.json.JSON
 import net.pwall.json.JSONConfig
+import net.pwall.json.JSONDeserializer
 import net.pwall.json.JSONSerializer
+import net.pwall.util.Strings
 
 /**
  * Content converter for ktor - converts JSON using the `json-kotlin` library.
@@ -49,19 +55,19 @@ import net.pwall.json.JSONSerializer
  */
 class JSONKtor(val config: JSONConfig? = null) : ContentConverter {
 
+    @KtorExperimentalAPI
     override suspend fun convertForSend(context: PipelineContext<Any, ApplicationCall>, contentType: ContentType,
             value: Any): Any? {
         if (contentType != ContentType.Application.Json)
             return null
         val json = JSONSerializer.serialize(value, config)?.toJSON() ?: "null"
-        return TextContent(json, contentType.withCharset(Charset.forName("UTF-8")))
+        return TextContent(json, contentType.withCharset(context.call.suitableCharset()))
     }
 
     override suspend fun convertForReceive(context: PipelineContext<ApplicationReceiveRequest, ApplicationCall>): Any? {
         val request = context.subject
-        val value = request.value as? ByteReadChannel ?: return null
-        val content = value.readRemaining(20000, 2000).readText() // 20000 is arbitrary maximum size (as is 2000)
-        return JSONAuto.parse(request.type, content) // TODO change to use config
+        val channel = request.value as? ByteReadChannel ?: return null
+        return JSONDeserializer.deserialize(request.type.starProjectedType, JSON.parse(readAll(channel)), config)
     }
 
 }
@@ -72,4 +78,30 @@ class JSONKtor(val config: JSONConfig? = null) : ContentConverter {
 fun ContentNegotiation.Configuration.jsonKtor(contentType: ContentType = ContentType.Application.Json,
         block: JSONConfig.() -> Unit = {}) {
     register(contentType, JSONKtor(JSONConfig().apply(block)))
+}
+
+const val bufferSize = 8192
+
+/**
+ * Read all data from the `ByteReadChannel` and convert from UTF-8.
+ *
+ * There may be a pre-existing function that does this, but if so it wasn't obvious!
+ *
+ * @param   channel the `ByteReadChannel`
+ * @return          the data as a string, decoded from UTF-8
+ */
+suspend fun readAll(channel: ByteReadChannel): String {
+    val bufferList: MutableList<ByteBuffer> = ArrayList()
+    var buffer = ByteBuffer.allocate(bufferSize)
+    while (!channel.isClosedForRead) {
+        channel.readAvailable(buffer)
+        if (!buffer.hasRemaining()) {
+            buffer.flip()
+            bufferList.add(buffer)
+            buffer = ByteBuffer.allocate(bufferSize)
+        }
+    }
+    buffer.flip()
+    bufferList.add(buffer)
+    return Strings.fromUTF8(bufferList.toTypedArray())
 }
