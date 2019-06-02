@@ -4,7 +4,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.pwall.json</groupId>
   <artifactId>json-ktor</artifactId>
-  <version>0.1-SNAPSHOT</version>
+  <version>0.1</version>
   <name>JSON functionality for ktor</name>
   <description>Kotlin classes to add auto-serialization and deserialization to ktor configuration.</description>
   <packaging>jar</packaging>
