@@ -39,6 +39,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.content.TextContent
 import io.ktor.http.withCharset
 import io.ktor.request.ApplicationReceiveRequest
+import io.ktor.request.contentCharset
 import io.ktor.util.KtorExperimentalAPI
 import io.ktor.util.pipeline.PipelineContext
 
@@ -46,15 +47,23 @@ import net.pwall.json.JSON
 import net.pwall.json.JSONConfig
 import net.pwall.json.JSONDeserializer
 import net.pwall.json.JSONSerializer
-import net.pwall.util.Strings
 
 /**
- * Content converter for ktor - converts JSON using the `json-kotlin` library.
+ * Content converter for ktor - converts from/to JSON using the [json-kotlin](https://github.com/pwall567/json-kotlin)
+ * library.
  *
  * @author  Peter Wall
  */
-class JSONKtor(val config: JSONConfig? = null) : ContentConverter {
+class JSONKtor(private val config: JSONConfig? = null) : ContentConverter {
 
+    /**
+     * Convert a value for sending (serialize to JSON).
+     *
+     * @param   context     the [PipelineContext]
+     * @param   contentType the content type (must be `application/json`)
+     * @param   value       the value to be converted
+     * @return              the converted value as a [TextContent]
+     */
     @KtorExperimentalAPI
     override suspend fun convertForSend(context: PipelineContext<Any, ApplicationCall>, contentType: ContentType,
             value: Any): Any? {
@@ -64,44 +73,73 @@ class JSONKtor(val config: JSONConfig? = null) : ContentConverter {
         return TextContent(json, contentType.withCharset(context.call.suitableCharset()))
     }
 
+    /**
+     * Convert a received value (deserialize from JSON).
+     *
+     * @param   context     the [PipelineContext]
+     * @return              the converted value
+     */
     override suspend fun convertForReceive(context: PipelineContext<ApplicationReceiveRequest, ApplicationCall>): Any? {
         val request = context.subject
         val channel = request.value as? ByteReadChannel ?: return null
-        return JSONDeserializer.deserialize(request.type.starProjectedType, JSON.parse(readAll(channel)), config)
+        val charSet = context.call.request.contentCharset() ?: Charsets.UTF_8
+        val bufferSize = config?.readBufferSize ?: JSONConfig.defaultBufferSize
+        val json = charSet.decode(readAll(channel, bufferSize)).toString()
+        return JSONDeserializer.deserialize(request.type.starProjectedType, JSON.parse(json), config)
     }
 
 }
 
 /**
- * Configure the [JSONConfig] used for this converter.
+ * Register the content converter and configure the [JSONConfig] used by it.
+ *
+ * @param   contentType the content type
+ * @param   block       a block of code to initialise the [JSONConfig]
  */
 fun ContentNegotiation.Configuration.jsonKtor(contentType: ContentType = ContentType.Application.Json,
         block: JSONConfig.() -> Unit = {}) {
     register(contentType, JSONKtor(JSONConfig().apply(block)))
 }
 
-const val bufferSize = 8192
-
 /**
- * Read all data from the `ByteReadChannel` and convert from UTF-8.
+ * Read all data from a [ByteReadChannel], returning a [ByteBuffer].  Because the total data length is initially
+ * unknown, the function first allocates a buffer of the size specified in the [JSONConfig] (default 8192 bytes);
+ * if this is filled the function reads multiple buffers into a list and then aggregates them into a single buffer.
  *
- * There may be a pre-existing function that does this, but if so it wasn't obvious!
+ * There may be a standard library function that does something like this, but if so it wasn't obvious!
  *
- * @param   channel the `ByteReadChannel`
- * @return          the data as a string, decoded from UTF-8
+ * @param   channel the [ByteReadChannel]
+ * @return          the [ByteBuffer]
  */
-suspend fun readAll(channel: ByteReadChannel): String {
-    val bufferList: MutableList<ByteBuffer> = ArrayList()
+suspend fun readAll(channel: ByteReadChannel, bufferSize: Int): ByteBuffer {
     var buffer = ByteBuffer.allocate(bufferSize)
-    while (!channel.isClosedForRead) {
+    while (true) {
         channel.readAvailable(buffer)
+        if (channel.isClosedForRead)
+            break
         if (!buffer.hasRemaining()) {
+            // too much for one buffer - need to start a list
+            buffer.flip()
+            val bufferList = arrayListOf(buffer)
+            buffer = ByteBuffer.allocate(bufferSize)
+            while (true) {
+                channel.readAvailable(buffer)
+                if (channel.isClosedForRead)
+                    break
+                if (!buffer.hasRemaining()) {
+                    buffer.flip()
+                    bufferList.add(buffer)
+                    buffer = ByteBuffer.allocate(bufferSize)
+                }
+            }
             buffer.flip()
             bufferList.add(buffer)
-            buffer = ByteBuffer.allocate(bufferSize)
+            // now combine the buffers in the list into a single buffer
+            buffer = ByteBuffer.allocate(bufferList.sumBy { it.remaining() })
+            bufferList.forEach { buffer.put(it) }
+            break
         }
     }
     buffer.flip()
-    bufferList.add(buffer)
-    return Strings.fromUTF8(bufferList.toTypedArray())
+    return buffer
 }
