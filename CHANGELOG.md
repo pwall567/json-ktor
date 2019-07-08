@@ -2,7 +2,7 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [0.2] - 2019-07-08
 ### Changed
 - `JSONKtor`: Improved reading of JSON to be coroutine-safe
 
