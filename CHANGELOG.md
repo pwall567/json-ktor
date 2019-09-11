@@ -2,7 +2,7 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [0.3] - 2019-09-12
 ### Changed
 - `pom.xml`: Changed to use parent POM
 - `pom.xml`: upgraded to version 0.10 of `json-kotlin`
