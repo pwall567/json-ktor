@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.3] - 2019-09-12
+### Changed
+- `pom.xml`: Changed to use parent POM
+- `pom.xml`: upgraded to version 0.10 of `json-kotlin`
+
 ## [0.2] - 2019-07-08
 ### Changed
 - `JSONKtor`: Improved reading of JSON to be coroutine-safe

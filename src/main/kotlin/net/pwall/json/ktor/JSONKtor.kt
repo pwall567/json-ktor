@@ -52,9 +52,11 @@ import net.pwall.json.JSONSerializer
  * Content converter for ktor - converts from/to JSON using the [json-kotlin](https://github.com/pwall567/json-kotlin)
  * library.
  *
+ * @property    config  an optional [JSONConfig]
+ * @constructor         creates a `JSONKtor` object for use in ktor `ContentNegotiation` configuration.
  * @author  Peter Wall
  */
-class JSONKtor(private val config: JSONConfig? = null) : ContentConverter {
+class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : ContentConverter {
 
     /**
      * Convert a value for sending (serialize to JSON).
@@ -83,8 +85,7 @@ class JSONKtor(private val config: JSONConfig? = null) : ContentConverter {
         val request = context.subject
         val channel = request.value as? ByteReadChannel ?: return null
         val charSet = context.call.request.contentCharset() ?: Charsets.UTF_8
-        val bufferSize = config?.readBufferSize ?: JSONConfig.defaultBufferSize
-        val json = charSet.decode(readAll(channel, bufferSize)).toString()
+        val json = charSet.decode(readAll(channel, config.readBufferSize)).toString()
         return JSONDeserializer.deserialize(request.type.starProjectedType, JSON.parse(json), config)
     }
 
@@ -103,13 +104,14 @@ fun ContentNegotiation.Configuration.jsonKtor(contentType: ContentType = Content
 
 /**
  * Read all data from a [ByteReadChannel], returning a [ByteBuffer].  Because the total data length is initially
- * unknown, the function first allocates a buffer of the size specified in the [JSONConfig] (default 8192 bytes);
- * if this is filled the function reads multiple buffers into a list and then aggregates them into a single buffer.
+ * unknown, the function first allocates a buffer of the size nominated; if this is filled the function reads multiple
+ * buffers into a list and then aggregates them into a single buffer.
  *
  * There may be a standard library function that does something like this, but if so it wasn't obvious!
  *
- * @param   channel the [ByteReadChannel]
- * @return          the [ByteBuffer]
+ * @param   channel     the [ByteReadChannel]
+ * @param   bufferSize  the buffer size
+ * @return              the [ByteBuffer]
  */
 suspend fun readAll(channel: ByteReadChannel, bufferSize: Int): ByteBuffer {
     var buffer = ByteBuffer.allocate(bufferSize)
