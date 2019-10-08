@@ -84,7 +84,7 @@ class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : Cont
     override suspend fun convertForReceive(context: PipelineContext<ApplicationReceiveRequest, ApplicationCall>): Any? {
         val request = context.subject
         val channel = request.value as? ByteReadChannel ?: return null
-        val charSet = context.call.request.contentCharset() ?: Charsets.UTF_8
+        val charSet = context.call.request.contentCharset() ?: config.charset
         val json = charSet.decode(readAll(channel, config.readBufferSize)).toString()
         return JSONDeserializer.deserialize(request.type.starProjectedType, JSON.parse(json), config)
     }
