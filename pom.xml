@@ -1,10 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 
   <modelVersion>4.0.0</modelVersion>
   <groupId>net.pwall.json</groupId>
   <artifactId>json-ktor</artifactId>
-  <version>0.3</version>
+  <version>0.4</version>
   <name>JSON functionality for ktor</name>
   <description>Kotlin classes to add auto-serialization and deserialization to ktor configuration.</description>
   <packaging>jar</packaging>
@@ -13,12 +14,12 @@
   <parent>
     <groupId>net.pwall.maven</groupId>
     <artifactId>maven-kotlin</artifactId>
-    <version>0.1</version>
+    <version>1.0</version>
   </parent>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <ktor.version>1.2.3</ktor.version>
+    <ktor.version>1.2.4</ktor.version>
   </properties>
 
   <licenses>
@@ -67,7 +68,7 @@
     <dependency>
       <groupId>net.pwall.json</groupId>
       <artifactId>json-kotlin</artifactId>
-      <version>0.10</version>
+      <version>1.0</version>
     </dependency>
     <dependency>
       <groupId>net.pwall.json</groupId>
