@@ -29,7 +29,7 @@ For more details see the `json-kotlin` library.
 
 ## Dependency Specification
 
-The latest version of the library is 2.0, and it may be found the the Maven Central repository.
+The latest version of the library is 0.5, and it may be found the the Maven Central repository.
 
 ### Maven
 ```xml
