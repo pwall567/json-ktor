@@ -25,7 +25,6 @@
 
 package net.pwall.json.ktor
 
-import kotlin.reflect.full.starProjectedType
 import kotlinx.coroutines.io.ByteReadChannel
 
 import java.nio.ByteBuffer
@@ -81,12 +80,13 @@ class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : Cont
      * @param   context     the [PipelineContext]
      * @return              the converted value
      */
+    @KtorExperimentalAPI
     override suspend fun convertForReceive(context: PipelineContext<ApplicationReceiveRequest, ApplicationCall>): Any? {
         val request = context.subject
         val channel = request.value as? ByteReadChannel ?: return null
         val charSet = context.call.request.contentCharset() ?: config.charset
         val json = charSet.decode(readAll(channel, config.readBufferSize)).toString()
-        return JSONDeserializer.deserialize(request.type.starProjectedType, JSON.parse(json), config)
+        return JSONDeserializer.deserialize(request.typeInfo, JSON.parse(json), config)
     }
 
 }
