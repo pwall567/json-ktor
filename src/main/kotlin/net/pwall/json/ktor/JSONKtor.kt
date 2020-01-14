@@ -2,7 +2,7 @@
  * @(#) JSONKtor.kt
  *
  * json-ktor JSON functionality for ktor
- * Copyright (c) 2019 Peter Wall
+ * Copyright (c) 2019, 2020 Peter Wall
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -45,7 +45,10 @@ import io.ktor.util.pipeline.PipelineContext
 import net.pwall.json.JSON
 import net.pwall.json.JSONConfig
 import net.pwall.json.JSONDeserializer
+import net.pwall.json.JSONException
 import net.pwall.json.JSONSerializer
+import net.pwall.json.stream.JSONStreamProcessor
+import net.pwall.util.pipeline.DecoderFactory
 
 /**
  * Content converter for ktor - converts from/to JSON using the [json-kotlin](https://github.com/pwall567/json-kotlin)
@@ -75,7 +78,7 @@ class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : Cont
     }
 
     /**
-     * Convert a received value (deserialize from JSON).
+     * Convert a received value (deserialize from JSON).  This uses a pipelining JSON library to parse JSON on the fly.
      *
      * @param   context     the [PipelineContext]
      * @return              the converted value
@@ -85,8 +88,24 @@ class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : Cont
         val request = context.subject
         val channel = request.value as? ByteReadChannel ?: return null
         val charSet = context.call.request.contentCharset() ?: config.charset
-        val json = charSet.decode(readAll(channel, config.readBufferSize)).toString()
-        return JSONDeserializer.deserialize(request.typeInfo, JSON.parse(json), config)
+        val pipeline = DecoderFactory.getDecoder(charSet, JSONStreamProcessor())
+        val buffer = ByteBuffer.allocate(config.readBufferSize)
+        channel.readAvailable(buffer)
+        buffer.flip()
+        if (channel.isClosedForRead)
+            return JSONDeserializer.deserialize(request.typeInfo, JSON.parse(charSet.decode(buffer).toString()), config)
+        while (true) {
+            while (buffer.hasRemaining())
+                pipeline.accept(buffer.get().toInt())
+            if (channel.isClosedForRead)
+                break
+            buffer.clear()
+            channel.readAvailable(buffer)
+            buffer.flip()
+        }
+        if (!pipeline.isComplete)
+            throw JSONException("Incomplete sequence")
+        return JSONDeserializer.deserialize(request.typeInfo, pipeline.result, config)
     }
 
 }
@@ -100,48 +119,4 @@ class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : Cont
 fun ContentNegotiation.Configuration.jsonKtor(contentType: ContentType = ContentType.Application.Json,
         block: JSONConfig.() -> Unit = {}) {
     register(contentType, JSONKtor(JSONConfig().apply(block)))
-}
-
-/**
- * Read all data from a [ByteReadChannel], returning a [ByteBuffer].  Because the total data length is initially
- * unknown, the function first allocates a buffer of the size nominated; if this is filled the function reads multiple
- * buffers into a list and then aggregates them into a single buffer.
- *
- * There may be a standard library function that does something like this, but if so it wasn't obvious!
- *
- * @param   channel     the [ByteReadChannel]
- * @param   bufferSize  the buffer size
- * @return              the [ByteBuffer]
- */
-suspend fun readAll(channel: ByteReadChannel, bufferSize: Int): ByteBuffer {
-    var buffer = ByteBuffer.allocate(bufferSize)
-    while (true) {
-        channel.readAvailable(buffer)
-        if (channel.isClosedForRead)
-            break
-        if (!buffer.hasRemaining()) {
-            // too much for one buffer - need to start a list
-            buffer.flip()
-            val bufferList = arrayListOf(buffer)
-            buffer = ByteBuffer.allocate(bufferSize)
-            while (true) {
-                channel.readAvailable(buffer)
-                if (channel.isClosedForRead)
-                    break
-                if (!buffer.hasRemaining()) {
-                    buffer.flip()
-                    bufferList.add(buffer)
-                    buffer = ByteBuffer.allocate(bufferSize)
-                }
-            }
-            buffer.flip()
-            bufferList.add(buffer)
-            // now combine the buffers in the list into a single buffer
-            buffer = ByteBuffer.allocate(bufferList.sumBy { it.remaining() })
-            bufferList.forEach { buffer.put(it) }
-            break
-        }
-    }
-    buffer.flip()
-    return buffer
 }

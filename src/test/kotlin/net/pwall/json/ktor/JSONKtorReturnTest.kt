@@ -1,5 +1,5 @@
 /*
- * @(#) TestJSONKtor.kt
+ * @(#) JSONKtorReturnTest.kt
  *
  * json-ktor JSON functionality for ktor
  * Copyright (c) 2019, 2020 Peter Wall
@@ -32,54 +32,44 @@ import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
-import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
-import io.ktor.request.receive
-import io.ktor.response.respondText
-import io.ktor.routing.post
+import io.ktor.response.respond
+import io.ktor.routing.get
 import io.ktor.routing.routing
 import io.ktor.server.testing.handleRequest
-import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
-import net.pwall.json.JSONObject
+import net.pwall.json.parseJSON
 
-class TestJSONKtor {
+class JSONKtorReturnTest {
 
-    @Test fun `test configuration with custom serialisation`() {
-
-        withTestApplication(Application::testApp2) {
-
-            expect("ABC=789") {
-                handleRequest(HttpMethod.Post, "/x") {
-                    addHeader("Content-Type", "application/json")
-                    setBody("""{"a":"ABC","b":789}""")
-                }.response.content
+    /**
+     * This test confirms that a simple JSON object is serialized and returned correctly.
+     */
+    @Test
+    fun `should return JSON object`() {
+        withTestApplication(Application::testReturnModule) {
+            expect(ReturnData("FGH", 9000)) {
+                handleRequest(HttpMethod.Get, "/q").response.content?.parseJSON<ReturnData>()
             }
-
         }
-
     }
 
 }
 
-fun Application.testApp2() {
+/**
+ * Application module to test JSON returned data functionality.  Defines a single endpoint that responds with a simple
+ * JSON object.
+ */
+fun Application.testReturnModule() {
     install(ContentNegotiation) {
-        jsonKtor {
-            fromJSON { json ->
-                (json as? JSONObject)?.let { Dummy2(it.getString("a"), it.getInt("b")) }
-            }
-            toJSON<Dummy2> {
-                it?.let { JSONObject().putValue("a", it.str).putValue("b", it.num) }
-            }
-        }
+        jsonKtor {}
     }
     routing {
-        post("/x") {
-            val jsonInput = call.receive<Dummy2>()
-            call.respondText("${jsonInput.str}=${jsonInput.num}", ContentType.Text.Plain)
+        get("/q") {
+            call.respond(ReturnData("FGH", 9000))
         }
     }
 }
 
-data class Dummy2(val str: String, val num: Int)
+data class ReturnData(val field1: String, val field2: Int)

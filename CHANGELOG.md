@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.6] - 2020-01-14
+### Changed
+- `JSONKtor`: Updated to use `json-stream` library
+- Added more test classes
+
 ## [0.5] - 2019-11-17
 ### Changed
 - `JSONKtor`: Change to `typeInfo` usage

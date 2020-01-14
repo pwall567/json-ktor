@@ -1,5 +1,5 @@
 /*
- * @(#) TestJSONKtor.kt
+ * @(#) JSONKtorReceiveTest.kt
  *
  * json-ktor JSON functionality for ktor
  * Copyright (c) 2019, 2020 Peter Wall
@@ -42,44 +42,55 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
-import net.pwall.json.JSONObject
+import net.pwall.json.stringifyJSON
+import net.pwall.util.Strings
 
-class TestJSONKtor {
+class JSONKtorReceiveTest {
 
-    @Test fun `test configuration with custom serialisation`() {
+    /**
+     * This test sends a large JSON object (a simple object containing a list of strings) to the application and
+     * confirms that it was received correctly by returning one of the strings.  The list is filled with the English
+     * language form of the numbers 0 to 7999; this allows the return value to be tested very simply, and also exercises
+     * the reading functionality of the `ContentConverter` with a large amount of data.
+     */
+    @Test fun `should receive JSON object`() {
+        withTestApplication(Application::testReceiveModule) {
+            val numbers: List<String> = List(8000) { i -> Strings.toEnglish(i) }
+            val body = StringList(numbers).stringifyJSON()
 
-        withTestApplication(Application::testApp2) {
-
-            expect("ABC=789") {
-                handleRequest(HttpMethod.Post, "/x") {
+            expect("one") {
+                handleRequest(HttpMethod.Post, "/1") {
                     addHeader("Content-Type", "application/json")
-                    setBody("""{"a":"ABC","b":789}""")
+                    setBody(body)
                 }.response.content
             }
 
+            expect("seven thousand, six hundred and eighty-two") {
+                handleRequest(HttpMethod.Post, "/7682") {
+                    addHeader("Content-Type", "application/json")
+                    setBody(body)
+                }.response.content
+            }
         }
-
     }
 
 }
 
-fun Application.testApp2() {
+/**
+ * Application module to test JSON "receive" functionality.  Defines a single endpoint which takes a JSON body (a simple
+ * object containing a list of strings) and returns the string from the list determined by the URL path parameter.
+ */
+fun Application.testReceiveModule() {
     install(ContentNegotiation) {
-        jsonKtor {
-            fromJSON { json ->
-                (json as? JSONObject)?.let { Dummy2(it.getString("a"), it.getInt("b")) }
-            }
-            toJSON<Dummy2> {
-                it?.let { JSONObject().putValue("a", it.str).putValue("b", it.num) }
-            }
-        }
+        jsonKtor {}
     }
     routing {
-        post("/x") {
-            val jsonInput = call.receive<Dummy2>()
-            call.respondText("${jsonInput.str}=${jsonInput.num}", ContentType.Text.Plain)
+        post("/{num}") {
+            val num = call.parameters["num"]?.toIntOrNull() ?: throw IllegalArgumentException()
+            val jsonInput = call.receive<StringList>()
+            call.respondText(jsonInput.list[num], ContentType.Text.Plain)
         }
     }
 }
 
-data class Dummy2(val str: String, val num: Int)
+data class StringList(val list: List<String>)
