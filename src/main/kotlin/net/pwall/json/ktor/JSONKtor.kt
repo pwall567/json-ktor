@@ -42,7 +42,6 @@ import io.ktor.request.contentCharset
 import io.ktor.util.KtorExperimentalAPI
 import io.ktor.util.pipeline.PipelineContext
 
-import net.pwall.json.JSON
 import net.pwall.json.JSONConfig
 import net.pwall.json.JSONDeserializer
 import net.pwall.json.JSONException
@@ -90,18 +89,14 @@ class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : Cont
         val charSet = context.call.request.contentCharset() ?: config.charset
         val pipeline = DecoderFactory.getDecoder(charSet, JSONStreamProcessor())
         val buffer = ByteBuffer.allocate(config.readBufferSize)
-        channel.readAvailable(buffer)
-        buffer.flip()
-        if (channel.isClosedForRead)
-            return JSONDeserializer.deserialize(request.typeInfo, JSON.parse(charSet.decode(buffer).toString()), config)
         while (true) {
+            channel.readAvailable(buffer)
+            buffer.flip()
             while (buffer.hasRemaining())
                 pipeline.accept(buffer.get().toInt())
             if (channel.isClosedForRead)
                 break
             buffer.clear()
-            channel.readAvailable(buffer)
-            buffer.flip()
         }
         if (!pipeline.isComplete)
             throw JSONException("Incomplete sequence")

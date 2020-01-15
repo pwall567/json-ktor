@@ -32,10 +32,9 @@ import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
-import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.request.receive
-import io.ktor.response.respondText
+import io.ktor.response.respond
 import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.testing.handleRequest
@@ -44,13 +43,13 @@ import io.ktor.server.testing.withTestApplication
 
 import net.pwall.json.JSONObject
 
-class TestJSONKtor {
+class JSONKtorCustomSerializationTest {
 
-    @Test fun `test configuration with custom serialisation`() {
+    @Test fun `test configuration with custom serialization and deserialization`() {
 
         withTestApplication(Application::testApp2) {
 
-            expect("ABC=789") {
+            expect("""{"a":"XXXABCYYY","b":1578}""") {
                 handleRequest(HttpMethod.Post, "/x") {
                     addHeader("Content-Type", "application/json")
                     setBody("""{"a":"ABC","b":789}""")
@@ -64,6 +63,7 @@ class TestJSONKtor {
 }
 
 fun Application.testApp2() {
+
     install(ContentNegotiation) {
         jsonKtor {
             fromJSON { json ->
@@ -74,12 +74,14 @@ fun Application.testApp2() {
             }
         }
     }
+
     routing {
         post("/x") {
             val jsonInput = call.receive<Dummy2>()
-            call.respondText("${jsonInput.str}=${jsonInput.num}", ContentType.Text.Plain)
+            call.respond(Dummy2("XXX${jsonInput.str}YYY", jsonInput.num * 2))
         }
     }
+
 }
 
 data class Dummy2(val str: String, val num: Int)

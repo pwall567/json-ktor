@@ -2,6 +2,12 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.7] - 2020-01-15
+### Changed
+- `JSONKtor`: Removed premature optimisation
+- Updated test classes
+- Bumped versions of dependencies
+
 ## [0.6] - 2020-01-14
 ### Changed
 - `JSONKtor`: Updated to use `json-stream` library
