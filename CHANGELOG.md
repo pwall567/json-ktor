@@ -2,6 +2,10 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [Unreleased]
+### Changed
+- Bumped versions of dependencies
+
 ## [0.7] - 2020-01-15
 ### Changed
 - `JSONKtor`: Removed premature optimisation
