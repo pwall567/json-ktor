@@ -33,31 +33,31 @@ From version 0.6 onwards, this library uses the `json-streaming` library for on-
 This means that the input data is parsed into an internal form as it is being read, and avoids the need to allocate
 memory for the entire JSON text.
 
-Later versions will allow JSON array content to be streamed to a Kotlin co-routine `Channel` for asynchronous
+Later versions will allow JSON array content to be streamed to a Kotlin co-routine `Channel` or `Flow` for asynchronous
 processing.
 Watch this space.
 
 ## Dependency Specification
 
-The latest version of the library is 0.8, and it may be obtained from the Maven Central repository.
+The latest version of the library is 0.9, and it may be obtained from the Maven Central repository.
 
 ### Maven
 ```xml
     <dependency>
       <groupId>net.pwall.json</groupId>
       <artifactId>json-ktor</artifactId>
-      <version>0.8</version>
+      <version>0.9</version>
     </dependency>
 ```
 ### Gradle
 ```groovy
-    implementation 'net.pwall.json:json-ktor:0.8'
+    implementation 'net.pwall.json:json-ktor:0.9'
 ```
 ### Gradle (kts)
 ```kotlin
-    implementation("net.pwall.json:json-ktor:0.8")
+    implementation("net.pwall.json:json-ktor:0.9")
 ```
 
 Peter Wall
 
-2020-01-28
+2020-02-02

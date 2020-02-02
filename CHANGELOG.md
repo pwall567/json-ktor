@@ -2,7 +2,12 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [Unreleased]
+## [0.9] - 2020-02-02
+### Changed
+- `JSONKtor`: Switched read to use ByteArray instead of ByteBuffer
+- `JSONKtor`: Updated for changes to `json-stream` library
+
+## [0.8] - 2020-01-28
 ### Changed
 - Bumped versions of dependencies
 
