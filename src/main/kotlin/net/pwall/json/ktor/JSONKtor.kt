@@ -27,8 +27,6 @@ package net.pwall.json.ktor
 
 import kotlinx.coroutines.io.ByteReadChannel
 
-import java.nio.ByteBuffer
-
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.features.ContentConverter
@@ -44,9 +42,8 @@ import io.ktor.util.pipeline.PipelineContext
 
 import net.pwall.json.JSONConfig
 import net.pwall.json.JSONDeserializer
-import net.pwall.json.JSONException
 import net.pwall.json.JSONSerializer
-import net.pwall.json.stream.JSONStreamProcessor
+import net.pwall.json.stream.JSONStream
 import net.pwall.util.pipeline.DecoderFactory
 
 /**
@@ -87,19 +84,18 @@ class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : Cont
         val request = context.subject
         val channel = request.value as? ByteReadChannel ?: return null
         val charSet = context.call.request.contentCharset() ?: config.charset
-        val pipeline = DecoderFactory.getDecoder(charSet, JSONStreamProcessor())
-        val buffer = ByteBuffer.allocate(config.readBufferSize)
+        val pipeline = DecoderFactory.getDecoder(charSet, JSONStream())
+        val buffer = ByteArray(config.readBufferSize)
         while (true) {
-            channel.readAvailable(buffer)
-            buffer.flip()
-            while (buffer.hasRemaining())
-                pipeline.accept(buffer.get().toInt())
+            val bytesRead = channel.readAvailable(buffer, 0, buffer.size)
+            if (bytesRead < 0)
+                break
+            for (i in 0 until bytesRead)
+                pipeline.acceptInt(buffer[i].toInt() and 0xFF)
             if (channel.isClosedForRead)
                 break
-            buffer.clear()
         }
-        if (!pipeline.isComplete)
-            throw JSONException("Incomplete sequence")
+        pipeline.close()
         return JSONDeserializer.deserialize(request.typeInfo, pipeline.result, config)
     }
 
