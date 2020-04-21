@@ -2,6 +2,10 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [0.10] - 2020-04-21
+### Changed
+- `JSONKtor`: Added capability to deserialize into a Kotlin `Flow` or `Channel`
+
 ## [0.9] - 2020-02-02
 ### Changed
 - `JSONKtor`: Switched read to use ByteArray instead of ByteBuffer
