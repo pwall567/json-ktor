@@ -1,5 +1,5 @@
 /*
- * @(#) JSONKtorCustomSerializationTest.kt
+ * @(#) JSONKtorFlowTest.kt
  *
  * json-ktor JSON functionality for ktor
  * Copyright (c) 2019, 2020 Peter Wall
@@ -26,69 +26,65 @@
 package net.pwall.json.ktor
 
 import kotlin.test.Test
-import kotlin.test.fail
+import kotlin.test.expect
+
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 
 import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
+import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.request.receive
-import io.ktor.response.respond
+import io.ktor.response.respondText
 import io.ktor.routing.post
 import io.ktor.routing.routing
 import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
-import net.pwall.json.JSONConfig
-import net.pwall.json.JSONObject
-import net.pwall.json.test.JSONExpect.Companion.expectJSON
+import net.pwall.json.stringifyJSON
+import net.pwall.util.Strings
 
-class JSONKtorCustomSerializationTest {
+class JSONKtorFlowTest {
 
-    @Test fun `test configuration with custom serialization and deserialization`() {
+    @Test fun `should receive JSON flow`() {
+        withTestApplication(Application::testFlowModule) {
+            val numbers: List<ListEntry> = List(8000) { i -> ListEntry(i, Strings.toEnglish(i)) }
+            val body = numbers.stringifyJSON()
 
-        withTestApplication(Application::testApp2) {
-
-            val result = handleRequest(HttpMethod.Post, "/x") {
-                addHeader("Content-Type", "application/json")
-                setBody("""{"a":"ABC","b":789}""")
-            }.response.content ?: fail("Response is null")
-            expectJSON(result) {
-                count(2)
-                property("a", "XXXABCYYY")
-                property("b", 1578)
+            expect("one") {
+                handleRequest(HttpMethod.Post, "/1") {
+                    addHeader("Content-Type", "application/json")
+                    setBody(body)
+                }.response.content
             }
 
+            expect("seven thousand, six hundred and eighty-two") {
+                handleRequest(HttpMethod.Post, "/7682") {
+                    addHeader("Content-Type", "application/json")
+                    setBody(body)
+                }.response.content
+            }
         }
-
     }
 
 }
 
-fun Application.testApp2() {
-
-    val config = JSONConfig().apply {
-        fromJSON { json ->
-            (json as? JSONObject)?.let { Dummy2(it.getString("a"), it.getInt("b")) }
-        }
-        toJSON<Dummy2> {
-            it?.let { JSONObject().putValue("a", it.str).putValue("b", it.num) }
-        }
-    }
-
+fun Application.testFlowModule() {
     install(ContentNegotiation) {
-        jsonKtor(config)
+        jsonKtor {}
     }
-
     routing {
-        post("/x") {
-            val jsonInput = call.receive<Dummy2>()
-            call.respond(Dummy2("XXX${jsonInput.str}YYY", jsonInput.num * 2))
+        post("/{num}") {
+            val num = call.parameters["num"]?.toIntOrNull() ?: throw IllegalArgumentException()
+            val flowInput = call.receive<Flow<ListEntry>>()
+            flowInput.collect { listEntry ->
+                if (listEntry.number == num)
+                    call.respondText(listEntry.text, ContentType.Text.Plain)
+            }
         }
     }
-
 }
-
-data class Dummy2(val str: String, val num: Int)
