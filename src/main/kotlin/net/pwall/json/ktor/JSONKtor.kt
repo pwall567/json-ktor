@@ -35,7 +35,6 @@ import kotlinx.coroutines.channels.ReceiveChannel
 import kotlinx.coroutines.channels.produce
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.io.ByteReadChannel
 
 import java.nio.charset.Charset
 
@@ -52,6 +51,7 @@ import io.ktor.request.ApplicationReceiveRequest
 import io.ktor.request.contentCharset
 import io.ktor.util.KtorExperimentalAPI
 import io.ktor.util.pipeline.PipelineContext
+import io.ktor.utils.io.ByteReadChannel
 
 import net.pwall.json.JSONConfig
 import net.pwall.json.JSONDeserializer
