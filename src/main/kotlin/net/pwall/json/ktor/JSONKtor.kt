@@ -70,24 +70,26 @@ import net.pwall.util.pipeline.simpleCoAcceptor
  * Content converter for ktor - converts from/to JSON using the [json-kotlin](https://github.com/pwall567/json-kotlin)
  * library.
  *
- * @property    config  an optional [JSONConfig]
- * @constructor         creates a `JSONKtor` object for use in ktor `ContentNegotiation` configuration.
+ * @property    contentType the [ContentType] for which this converter is registered
+ * @property    config      an optional [JSONConfig]
+ * @constructor             creates a `JSONKtor` object for use in ktor `ContentNegotiation` configuration.
  * @author  Peter Wall
  */
-class JSONKtor(private val config: JSONConfig = JSONConfig.defaultConfig) : ContentConverter {
+class JSONKtor(private val contentType: ContentType, private val config: JSONConfig = JSONConfig.defaultConfig) :
+        ContentConverter {
 
     /**
      * Convert a value for sending (serialize to JSON).
      *
      * @param   context     the [PipelineContext]
-     * @param   contentType the content type (must be `application/json`)
+     * @param   contentType the content type (must match the content type provided to the constructor)
      * @param   value       the value to be converted
      * @return              the converted value as an [OutgoingContent]
      */
     @KtorExperimentalAPI
     override suspend fun convertForSend(context: PipelineContext<Any, ApplicationCall>, contentType: ContentType,
             value: Any): OutgoingContent? {
-        if (contentType != ContentType.Application.Json)
+        if (!contentType.match(this.contentType))
             return null
         val json = value.stringifyJSON(config)
         return TextContent(json, contentType.withCharset(context.call.suitableCharset()))
@@ -215,21 +217,21 @@ data class JSONReceiveCoroutine(val type: KType) : AbstractCoroutineContextEleme
 /**
  * Register the content converter, supplying the [JSONConfig] to be used by it.
  *
- * @param   contentType the content type
+ * @param   contentType the content type (default `application/json`)
  * @param   config      a [JSONConfig]
  */
 fun ContentNegotiation.Configuration.jsonKtor(config: JSONConfig,
         contentType: ContentType = ContentType.Application.Json) {
-    register(contentType, JSONKtor(config))
+    register(contentType, JSONKtor(contentType, config))
 }
 
 /**
  * Register the content converter and configure a new [JSONConfig] to be used by it.
  *
- * @param   contentType the content type
+ * @param   contentType the content type (default `application/json`)
  * @param   block       a block of code to initialise the [JSONConfig]
  */
 fun ContentNegotiation.Configuration.jsonKtor(contentType: ContentType = ContentType.Application.Json,
         block: JSONConfig.() -> Unit = {}) {
-    register(contentType, JSONKtor(JSONConfig().apply(block)))
+    register(contentType, JSONKtor(contentType, JSONConfig().apply(block)))
 }
