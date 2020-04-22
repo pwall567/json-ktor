@@ -2,6 +2,11 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.0-SNAPSHOT] - 2020-04-22
+### Changed
+- Changes to library versions and package names for ktor 1.3.0
+- `JSONKtor`: Added ability to parameterise target Content-Type
+
 ## [0.10] - 2020-04-21
 ### Changed
 - `JSONKtor`: Added capability to deserialize into a Kotlin `Flow` or `Channel`
