@@ -54,32 +54,33 @@ Or (slightly more complicated):
 
 ## ktor Version
 
-Versions of this library up to (and including) 0.10 use ktor version 1.2.4.
+Version 1.0 of this library uses ktor version 1.3.0.
+This release of ktor introduced a number of breaking changes, and earlier versions of ktor will not work with
+`json-ktor` 1.0 and above.
 
-ktor version 1.3.0 introduced some breaking changes, and future versions of this library will use ktor 1.3.0.
-It is important to use the correct version to match the version of ktor.
+Anyone requiring ktor 1.2.4 support will need to use `json-ktor` version 0.10.
 
 ## Dependency Specification
 
-The latest version of the library is 0.10, and it may be obtained from the Maven Central repository.
+The latest version of the library is 1.0, and it may be obtained from the Maven Central repository.
 
 ### Maven
 ```xml
     <dependency>
       <groupId>net.pwall.json</groupId>
       <artifactId>json-ktor</artifactId>
-      <version>0.10</version>
+      <version>1.0</version>
     </dependency>
 ```
 ### Gradle
 ```groovy
-    implementation 'net.pwall.json:json-ktor:0.10'
+    implementation 'net.pwall.json:json-ktor:1.0'
 ```
 ### Gradle (kts)
 ```kotlin
-    implementation("net.pwall.json:json-ktor:0.10")
+    implementation("net.pwall.json:json-ktor:1.0")
 ```
 
 Peter Wall
 
-2020-04-21
+2020-04-22
