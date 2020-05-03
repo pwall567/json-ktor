@@ -42,7 +42,9 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
+import net.pwall.json.TestStringList
 import net.pwall.json.stringifyJSON
+import net.pwall.json.ktor.JSONKtorFunctions.jsonKtor
 import net.pwall.util.Strings
 
 class JSONKtorReceiveTest {
@@ -56,7 +58,7 @@ class JSONKtorReceiveTest {
     @Test fun `should receive JSON object`() {
         withTestApplication(Application::testReceiveModule) {
             val numbers: List<String> = List(8000) { i -> Strings.toEnglish(i) }
-            val body = StringList(numbers).stringifyJSON()
+            val body = TestStringList(numbers).stringifyJSON()
 
             expect("one") {
                 handleRequest(HttpMethod.Post, "/1") {
@@ -87,10 +89,8 @@ fun Application.testReceiveModule() {
     routing {
         post("/{num}") {
             val num = call.parameters["num"]?.toIntOrNull() ?: throw IllegalArgumentException()
-            val jsonInput = call.receive<StringList>()
+            val jsonInput = call.receive<TestStringList>()
             call.respondText(jsonInput.list[num], ContentType.Text.Plain)
         }
     }
 }
-
-data class StringList(val list: List<String>)

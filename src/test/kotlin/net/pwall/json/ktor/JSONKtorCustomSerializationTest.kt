@@ -41,8 +41,10 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
+import net.pwall.json.Dummy1
 import net.pwall.json.JSONConfig
 import net.pwall.json.JSONObject
+import net.pwall.json.ktor.JSONKtorFunctions.jsonKtor
 import net.pwall.json.test.JSONExpect.Companion.expectJSON
 
 class JSONKtorCustomSerializationTest {
@@ -71,10 +73,10 @@ fun Application.testApp2() {
 
     val config = JSONConfig().apply {
         fromJSON { json ->
-            (json as? JSONObject)?.let { Dummy2(it.getString("a"), it.getInt("b")) }
+            (json as? JSONObject)?.let { Dummy1(it.getString("a"), it.getInt("b")) }
         }
-        toJSON<Dummy2> {
-            it?.let { JSONObject().putValue("a", it.str).putValue("b", it.num) }
+        toJSON<Dummy1> {
+            it?.let { JSONObject().putValue("a", it.field1).putValue("b", it.field2) }
         }
     }
 
@@ -84,11 +86,9 @@ fun Application.testApp2() {
 
     routing {
         post("/x") {
-            val jsonInput = call.receive<Dummy2>()
-            call.respond(Dummy2("XXX${jsonInput.str}YYY", jsonInput.num * 2))
+            val jsonInput = call.receive<Dummy1>()
+            call.respond(Dummy1("XXX${jsonInput.field1}YYY", jsonInput.field2 * 2))
         }
     }
 
 }
-
-data class Dummy2(val str: String, val num: Int)

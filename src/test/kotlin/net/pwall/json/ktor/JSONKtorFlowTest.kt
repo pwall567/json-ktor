@@ -45,14 +45,16 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
+import net.pwall.json.TestListEntry
 import net.pwall.json.stringifyJSON
+import net.pwall.json.ktor.JSONKtorFunctions.jsonKtor
 import net.pwall.util.Strings
 
 class JSONKtorFlowTest {
 
     @Test fun `should receive JSON flow`() {
         withTestApplication(Application::testFlowModule) {
-            val numbers: List<ListEntry> = List(8000) { i -> ListEntry(i, Strings.toEnglish(i)) }
+            val numbers: List<TestListEntry> = List(8000) { i -> TestListEntry(i, Strings.toEnglish(i)) }
             val body = numbers.stringifyJSON()
 
             expect("one") {
@@ -80,7 +82,7 @@ fun Application.testFlowModule() {
     routing {
         post("/{num}") {
             val num = call.parameters["num"]?.toIntOrNull() ?: throw IllegalArgumentException()
-            val flowInput = call.receive<Flow<ListEntry>>()
+            val flowInput = call.receive<Flow<TestListEntry>>()
             flowInput.collect { listEntry ->
                 if (listEntry.number == num)
                     call.respondText(listEntry.text, ContentType.Text.Plain)

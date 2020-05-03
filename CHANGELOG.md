@@ -2,7 +2,13 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
-## [1.0-SNAPSHOT] - 2020-04-22
+## [1.1] - 2020-05-03
+### Added
+- `JSONKtorFunctions`: Functions extracted from `JSONKtor`
+### Changed
+- `JSONKtor`: Added streamed output
+
+## [1.0] - 2020-04-22
 ### Changed
 - Changes to library versions and package names for ktor 1.3.0
 - `JSONKtor`: Added ability to parameterise target Content-Type
