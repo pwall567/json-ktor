@@ -47,7 +47,9 @@ import io.ktor.server.testing.handleRequest
 import io.ktor.server.testing.setBody
 import io.ktor.server.testing.withTestApplication
 
+import net.pwall.json.TestListEntry
 import net.pwall.json.stringifyJSON
+import net.pwall.json.ktor.JSONKtorFunctions.jsonKtor
 import net.pwall.util.Strings
 
 class JSONKtorReceiveChannelTest {
@@ -55,7 +57,7 @@ class JSONKtorReceiveChannelTest {
     @ExperimentalCoroutinesApi
     @Test fun `should receive JSON channel`() {
         withTestApplication(Application::testReceiveChannelModule) {
-            val numbers: List<ListEntry> = List(8000) { i -> ListEntry(i, Strings.toEnglish(i)) }
+            val numbers: List<TestListEntry> = List(8000) { i -> TestListEntry(i, Strings.toEnglish(i)) }
             val body = numbers.stringifyJSON()
 
             expect("one") {
@@ -83,7 +85,7 @@ fun Application.testReceiveChannelModule() {
     routing {
         post("/{num}") {
             val num = call.parameters["num"]?.toIntOrNull() ?: throw IllegalArgumentException()
-            val channelInput = call.receive<ReceiveChannel<ListEntry>>()
+            val channelInput = call.receive<ReceiveChannel<TestListEntry>>()
             while (true) {
                 if (channelInput.isClosedForReceive) {
                     call.respond(HttpStatusCode.NotFound)

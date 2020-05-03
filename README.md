@@ -52,9 +52,40 @@ Or (slightly more complicated):
     }
 ```
 
+## Streaming Output
+
+From version 1.1, the library will (optionally) stream output using a non-blocking output library
+([`json-kotlin-nonblocking`](https://github.com/pwall567/json-kotlin-nonblocking)).
+Using this option, ktor response data will be sent as soon as it is available - this is particularly useful when data is
+produced asynchronously:
+```kotlin
+    val result = flow<BusinessObject> {
+        val businessObject = businessFunction()
+        emit(businessObject)
+    }
+    call.respond(result)
+```
+Or:
+```kotlin
+    val result = scope.produce<BusinessObject> {
+        val businessObject = businessFunction()
+        send(businessObject)
+    }
+    call.respond(result)
+```
+Because there is a performance penalty for using streamed output, this is an option that must be enabled in the
+`JSONConfig`:
+```kotlin
+    install(ContentNegotiation) {
+        jsonKtor {
+            streamOutput = true
+        }
+    }
+```
+
 ## ktor Version
 
-Version 1.0 of this library uses ktor version 1.3.0.
+Version 1.0 (and later) of this library uses ktor version 1.3.0.
 This release of ktor introduced a number of breaking changes, and earlier versions of ktor will not work with
 `json-ktor` 1.0 and above.
 
@@ -62,25 +93,25 @@ Anyone requiring ktor 1.2.4 support will need to use `json-ktor` version 0.10.
 
 ## Dependency Specification
 
-The latest version of the library is 1.0, and it may be obtained from the Maven Central repository.
+The latest version of the library is 1.1, and it may be obtained from the Maven Central repository.
 
 ### Maven
 ```xml
     <dependency>
       <groupId>net.pwall.json</groupId>
       <artifactId>json-ktor</artifactId>
-      <version>1.0</version>
+      <version>1.1</version>
     </dependency>
 ```
 ### Gradle
 ```groovy
-    implementation 'net.pwall.json:json-ktor:1.0'
+    implementation 'net.pwall.json:json-ktor:1.1'
 ```
 ### Gradle (kts)
 ```kotlin
-    implementation("net.pwall.json:json-ktor:1.0")
+    implementation("net.pwall.json:json-ktor:1.1")
 ```
 
 Peter Wall
 
-2020-04-22
+2020-05-03

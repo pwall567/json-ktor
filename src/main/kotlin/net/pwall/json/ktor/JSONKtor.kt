@@ -41,7 +41,6 @@ import java.nio.charset.Charset
 import io.ktor.application.ApplicationCall
 import io.ktor.application.call
 import io.ktor.features.ContentConverter
-import io.ktor.features.ContentNegotiation
 import io.ktor.features.suitableCharset
 import io.ktor.http.ContentType
 import io.ktor.http.content.OutgoingContent
@@ -56,6 +55,8 @@ import io.ktor.utils.io.ByteReadChannel
 import net.pwall.json.JSONConfig
 import net.pwall.json.JSONDeserializer
 import net.pwall.json.JSONException
+import net.pwall.json.ktor.JSONKtorFunctions.copyToPipeline
+import net.pwall.json.ktor.JSONKtorFunctions.createOutgoingContent
 import net.pwall.json.stream.JSONArrayCoPipeline
 import net.pwall.json.stream.JSONDeserializerCoPipeline
 import net.pwall.json.stream.JSONStream
@@ -63,7 +64,6 @@ import net.pwall.json.stringifyJSON
 import net.pwall.util.pipeline.ChannelCoAcceptor
 import net.pwall.util.pipeline.CoDecoderFactory
 import net.pwall.util.pipeline.DecoderFactory
-import net.pwall.util.pipeline.IntCoAcceptor
 import net.pwall.util.pipeline.simpleCoAcceptor
 
 /**
@@ -75,8 +75,7 @@ import net.pwall.util.pipeline.simpleCoAcceptor
  * @constructor             creates a `JSONKtor` object for use in ktor `ContentNegotiation` configuration.
  * @author  Peter Wall
  */
-class JSONKtor(private val contentType: ContentType, private val config: JSONConfig = JSONConfig.defaultConfig) :
-        ContentConverter {
+class JSONKtor(val contentType: ContentType, val config: JSONConfig = JSONConfig.defaultConfig) : ContentConverter {
 
     /**
      * Convert a value for sending (serialize to JSON).
@@ -91,8 +90,10 @@ class JSONKtor(private val contentType: ContentType, private val config: JSONCon
             value: Any): OutgoingContent? {
         if (!contentType.match(this.contentType))
             return null
-        val json = value.stringifyJSON(config)
-        return TextContent(json, contentType.withCharset(context.call.suitableCharset()))
+        val charset = context.call.suitableCharset(config.charset)
+        if (config.streamOutput)
+            return createOutgoingContent(value, contentType, charset, config)
+        return TextContent(value.stringifyJSON(config), contentType.withCharset(charset))
     }
 
     /**
@@ -124,7 +125,8 @@ class JSONKtor(private val contentType: ContentType, private val config: JSONCon
      * @return              the deserialized value
      */
     @KtorExperimentalAPI
-    suspend fun receiveNormal(request: ApplicationReceiveRequest, channel: ByteReadChannel, charset: Charset): Any? {
+    private suspend fun receiveNormal(request: ApplicationReceiveRequest, channel: ByteReadChannel,
+            charset: Charset): Any? {
         val buffer = ByteArray(config.readBufferSize)
         val pipeline = DecoderFactory.getDecoder(charset, JSONStream())
         while (true) {
@@ -149,35 +151,35 @@ class JSONKtor(private val contentType: ContentType, private val config: JSONCon
      * @return              a [Flow] of the deserialized values
      */
     @KtorExperimentalAPI
-    suspend fun receiveFlow(request: ApplicationReceiveRequest, channel: ByteReadChannel, charset: Charset):
+    private suspend fun receiveFlow(request: ApplicationReceiveRequest, channel: ByteReadChannel, charset: Charset):
             Flow<Any?> {
         val targetType = request.targetType()
         return flow {
             val pipeline = CoDecoderFactory.getDecoder(charset, JSONArrayCoPipeline(simpleCoAcceptor {
                 emit(JSONDeserializer.deserialize(targetType, it, config))
             }))
-            channel.copyToPipeline(pipeline)
+            channel.copyToPipeline(pipeline, config.readBufferSize)
         }
     }
 
     /**
-     * Deserialize a [Channel].
+     * Deserialize a [ReceiveChannel].
      *
      * @param   request     the [ApplicationReceiveRequest]
      * @param   call        the [ApplicationCall]
      * @param   channel     the [ByteReadChannel]
      * @param   charset     the [Charset] to use
-     * @return              a [Flow] of the deserialized values
+     * @return              a [ReceiveChannel] of the deserialized values
      */
     @ExperimentalCoroutinesApi
     @KtorExperimentalAPI
-    suspend fun receiveChannel(request: ApplicationReceiveRequest, call: ApplicationCall, channel: ByteReadChannel,
-            charset: Charset): ReceiveChannel<Any?> {
+    private suspend fun receiveChannel(request: ApplicationReceiveRequest, call: ApplicationCall,
+            channel: ByteReadChannel, charset: Charset): ReceiveChannel<Any?> {
         val targetType = request.targetType()
-        return call.application.produce(JSONReceiveCoroutine(targetType)) {
+        return call.application.produce(JSONReceiveCoroutineContext(targetType)) {
             val jsonPipeline = JSONDeserializerCoPipeline<Any, Unit>(targetType, ChannelCoAcceptor(this), config)
             val pipeline = CoDecoderFactory.getDecoder(charset, JSONArrayCoPipeline(jsonPipeline))
-            channel.copyToPipeline(pipeline)
+            channel.copyToPipeline(pipeline, config.readBufferSize)
         }
     }
 
@@ -189,49 +191,11 @@ class JSONKtor(private val contentType: ContentType, private val config: JSONCon
             throw JSONException("Insufficient type information to deserialize generic class")
 
     /**
-     * Copy data from the [ByteReadChannel] to an [IntCoAcceptor].
+     * A [CoroutineContext] for [Channel] deserialization coroutines.
      */
-    private suspend fun ByteReadChannel.copyToPipeline(acceptor: IntCoAcceptor<*>) {
-        val buffer = ByteArray(config.readBufferSize)
-        while (true) {
-            val bytesRead = readAvailable(buffer, 0, buffer.size)
-            if (bytesRead < 0)
-                break
-            for (i in 0 until bytesRead)
-                acceptor.accept(buffer[i].toInt() and 0xFF)
-            if (isClosedForRead)
-                break
-        }
-        acceptor.close()
+    data class JSONReceiveCoroutineContext(val type: KType) :
+            AbstractCoroutineContextElement(JSONReceiveCoroutineContext) {
+        companion object Key : CoroutineContext.Key<JSONReceiveCoroutineContext>
     }
 
-}
-
-/**
- * A [CoroutineContext] for [Channel] deserialization coroutines.
- */
-data class JSONReceiveCoroutine(val type: KType) : AbstractCoroutineContextElement(JSONReceiveCoroutine) {
-    companion object Key : CoroutineContext.Key<JSONReceiveCoroutine>
-}
-
-/**
- * Register the content converter, supplying the [JSONConfig] to be used by it.
- *
- * @param   contentType the content type (default `application/json`)
- * @param   config      a [JSONConfig]
- */
-fun ContentNegotiation.Configuration.jsonKtor(config: JSONConfig,
-        contentType: ContentType = ContentType.Application.Json) {
-    register(contentType, JSONKtor(contentType, config))
-}
-
-/**
- * Register the content converter and configure a new [JSONConfig] to be used by it.
- *
- * @param   contentType the content type (default `application/json`)
- * @param   block       a block of code to initialise the [JSONConfig]
- */
-fun ContentNegotiation.Configuration.jsonKtor(contentType: ContentType = ContentType.Application.Json,
-        block: JSONConfig.() -> Unit = {}) {
-    register(contentType, JSONKtor(contentType, JSONConfig().apply(block)))
 }

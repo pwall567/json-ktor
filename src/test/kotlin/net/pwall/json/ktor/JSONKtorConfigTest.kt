@@ -1,8 +1,8 @@
 /*
- * @(#) JSONKtorReturnTest.kt
+ * @(#) JSONKtorConfigTest.kt
  *
  * json-ktor JSON functionality for ktor
- * Copyright (c) 2019, 2020 Peter Wall
+ * Copyright (c) 2020 Peter Wall
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -27,49 +27,43 @@ package net.pwall.json.ktor
 
 import kotlin.test.Test
 import kotlin.test.expect
+import kotlin.test.fail
 
 import io.ktor.application.Application
-import io.ktor.application.call
+import io.ktor.application.feature
 import io.ktor.application.install
 import io.ktor.features.ContentNegotiation
-import io.ktor.http.HttpMethod
-import io.ktor.response.respond
-import io.ktor.routing.get
-import io.ktor.routing.routing
-import io.ktor.server.testing.handleRequest
+import io.ktor.http.ContentType
 import io.ktor.server.testing.withTestApplication
 
-import net.pwall.json.Dummy1
-import net.pwall.json.parseJSON
 import net.pwall.json.ktor.JSONKtorFunctions.jsonKtor
 
-class JSONKtorReturnTest {
+class JSONKtorConfigTest {
 
-    /**
-     * This test confirms that a simple JSON object is serialized and returned correctly.
-     */
-    @Test
-    fun `should return JSON object`() {
-        withTestApplication(Application::testReturnModule) {
-            expect(Dummy1("FGH", 9000)) {
-                handleRequest(HttpMethod.Get, "/q").response.content?.parseJSON<Dummy1>()
-            }
-        }
+    @Test fun `should configure JSONConfig when adding feature`() {
+        withTestApplication(Application::testConfig) {}
     }
 
 }
 
-/**
- * Application module to test JSON returned data functionality.  Defines a single endpoint that responds with a simple
- * JSON object.
- */
-fun Application.testReturnModule() {
+fun Application.testConfig() {
+    val specialContentType = ContentType("application", "x-json-special")
     install(ContentNegotiation) {
-        jsonKtor {}
-    }
-    routing {
-        get("/q") {
-            call.respond(Dummy1("FGH", 9000))
+        jsonKtor(specialContentType) {
+            readBufferSize = 1280
+            bigIntegerString = true
         }
     }
+    val converter = findJSONKtor() ?: fail("Can't locate JSONKtor")
+    expect(specialContentType) { converter.contentType }
+    val config = converter.config
+    expect(1280) { config.readBufferSize }
+    expect(true) { config.bigIntegerString }
+}
+
+private fun Application.findJSONKtor(): JSONKtor? {
+    feature(ContentNegotiation).registrations.forEach { registration ->
+        registration.converter.let { if (it is JSONKtor) return it }
+    }
+    return null
 }
