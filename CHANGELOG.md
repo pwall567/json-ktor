@@ -2,6 +2,10 @@
 
 The format is based on [Keep a Changelog](http://keepachangelog.com/).
 
+## [1.2] - 2020-09-20
+### Changed
+- `pom.xml`: Updated Kotlin and ktor versions to 1.4.0 (both)
+
 ## [1.1] - 2020-05-03
 ### Added
 - `JSONKtorFunctions`: Functions extracted from `JSONKtor`
