@@ -36,9 +36,9 @@ import io.ktor.utils.io.ByteWriteChannel
 
 import net.pwall.json.JSONCoStringify.outputJSON
 import net.pwall.json.JSONConfig
-import net.pwall.util.pipeline.AbstractIntCoAcceptor
-import net.pwall.util.pipeline.CoEncoderFactory
-import net.pwall.util.pipeline.IntCoAcceptor
+import net.pwall.pipeline.AbstractIntCoAcceptor
+import net.pwall.pipeline.IntCoAcceptor
+import net.pwall.pipeline.codec.CoEncoderFactory
 
 @Suppress("unused")
 object JSONKtorFunctions {
@@ -119,7 +119,7 @@ object JSONKtorFunctions {
         /**
          * Close the acceptor.
          */
-        override fun close() {
+        override suspend fun close() {
             super.close()
             channel.close(null)
         }
@@ -127,7 +127,7 @@ object JSONKtorFunctions {
         /**
          * Flush the output to the channel.
          */
-        override fun flush() {
+        override suspend fun flush() {
             channel.flush()
         }
 

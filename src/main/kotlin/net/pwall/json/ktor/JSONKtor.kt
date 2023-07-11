@@ -61,10 +61,10 @@ import net.pwall.json.stream.JSONArrayCoPipeline
 import net.pwall.json.stream.JSONDeserializerCoPipeline
 import net.pwall.json.stream.JSONStream
 import net.pwall.json.stringifyJSON
-import net.pwall.util.pipeline.ChannelCoAcceptor
-import net.pwall.util.pipeline.CoDecoderFactory
-import net.pwall.util.pipeline.DecoderFactory
-import net.pwall.util.pipeline.simpleCoAcceptor
+import net.pwall.pipeline.ChannelCoAcceptor
+import net.pwall.pipeline.simpleCoAcceptor
+import net.pwall.pipeline.codec.CoDecoderFactory
+import net.pwall.pipeline.codec.DecoderFactory
 
 /**
  * Content converter for ktor - converts from/to JSON using the [json-kotlin](https://github.com/pwall567/json-kotlin)
